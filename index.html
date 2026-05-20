@@ -1,0 +1,2903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Search Labs — Elastic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============================
+     Design tokens (from Figma)
+     ============================ */
+  :root {
+    --color-tuna: #343741;
+    --color-curious-blue: #199FE7;
+    --color-manatee: #8A91A1;
+    --color-mystic: #DCE2EA;
+    --color-black-haze: #F9FAFA;
+    --color-white: #FFFFFF;
+
+    --font-display: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+    --topnav-h: 122px;
+    --secondary-nav-h: 60px;
+    --leftnav-w: 213px;
+
+    --content-max: 1400px;
+    --section-px: 32px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-body);
+    color: var(--color-tuna);
+    background: var(--color-white);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+    padding-top: calc(var(--topnav-h) + var(--secondary-nav-h));
+  }
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; display: block; }
+  button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+  /* ============================
+     Top navigation (Figma-implemented)
+     ============================ */
+  .topnav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: var(--color-white);
+    transition: transform 0.25s ease;
+  }
+  body.nav-hidden .topnav { transform: translateY(-100%); }
+
+  /* Secondary nav — sticky strip below the primary nav, stays at top when primary hides */
+  .secondary-nav {
+    position: fixed;
+    top: var(--topnav-h);
+    left: 0; right: 0;
+    height: var(--secondary-nav-h);
+    background: var(--color-white);
+    z-index: 99;
+    border-bottom: 1px solid var(--color-mystic);
+    transition: top 0.25s ease;
+  }
+  body.nav-hidden .secondary-nav { top: 0; }
+  .secondary-nav__inner {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    height: 100%;
+    display: flex; align-items: center;
+    gap: 12px;
+  }
+  .secondary-nav__item {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--color-mystic);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--color-tuna);
+    text-transform: uppercase;
+    background: var(--color-white);
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease, font-weight 0.15s ease;
+  }
+  .secondary-nav__item:hover {
+    color: #0B0C0E;
+    font-weight: 700;
+  }
+  .secondary-nav__item[data-lab="es"]:hover { background: #FFDE7D; }
+  .secondary-nav__item[data-lab="obs"]:hover { background: #FF9B85; }
+  .secondary-nav__item[data-lab="sec"]:hover { background: #F04E98; }
+  .secondary-nav__bracket {
+    color: var(--color-manatee);
+    margin-right: 6px;
+  }
+
+  /* Grey hero banner for article pages — full-bleed, content centered in inner */
+  .article-hero {
+    background: #F6F8F9;
+  }
+  .article-hero[hidden] { display: none; }
+  .article-hero__inner {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 80px 0 64px 0;
+  }
+  .article-hero__inner > .article-breadcrumb {
+    display: inline-flex;
+    margin-bottom: 24px;
+  }
+  .article-hero__inner > .article-eyebrow {
+    margin-bottom: 12px;
+  }
+  .article-hero__inner > .h1 {
+    margin: 0;
+    max-width: 1050px;
+  }
+  .article-hero__inner > .article-header__subtitle {
+    margin-top: 24px;
+  }
+  .article-hero__inner > .article-header__chips {
+    margin-top: 24px;
+  }
+  .article-hero__inner > .article-author {
+    margin-top: 32px;
+  }
+  /* First section in main column — matches sidenav padding-top so headings/eyebrows align */
+  .section--first { padding-top: 56px !important; padding-bottom: 56px; }
+  /* FEATURED POST eyebrow on homepage */
+  .hero-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-manatee);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 64px;
+  }
+  .hero-eyebrow__slash {
+    color: var(--color-manatee);
+    font-weight: 400;
+  }
+  .hero-eyebrow__rule {
+    height: 1px;
+    background: var(--color-mystic);
+    margin: 12px 0 0 0;
+  }
+
+  .topnav__upper {
+    background: var(--color-white);
+    border-bottom: 1px solid #F5F7FA;
+  }
+  .topnav__upper-inner {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 10px 0;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .topnav__announce { display: flex; align-items: center; gap: 16px; }
+  .topnav__badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    color: #DD0A73;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  .topnav__badge svg { width: 10px; height: 10px; }
+  .topnav__announce-text {
+    color: #343741;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  .topnav__announce-link {
+    color: #0B64DD;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  .topnav__announce-link:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  .topnav__utility { display: flex; align-items: center; gap: 16px; }
+  .topnav__utility a {
+    color: #343741;
+    font-size: 14px;
+    line-height: 1.3;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .topnav__utility a:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .topnav__sep {
+    width: 1px; height: 18px;
+    background: #6B7079;
+    opacity: 0.4;
+  }
+
+  .topnav__primary {
+    background: var(--color-white);
+  }
+  .topnav__primary-inner {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    height: 84px;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 24px;
+  }
+  .topnav__brand { display: flex; align-items: center; gap: 40px; }
+  .topnav__logo {
+    display: flex; align-items: center; gap: 10px;
+    color: #1C1E23;
+  }
+  .topnav__logo-text {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: #1C1E23;
+  }
+  .topnav__menu { display: flex; gap: 24px; }
+  .topnav__menu a {
+    color: #1C1E23;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.3;
+    font-family: var(--font-display);
+  }
+  .topnav__menu a:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  .topnav__actions { display: flex; align-items: center; gap: 12px; }
+  .topnav__search {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 40px;
+    padding: 0 20px;
+    border: 2px solid #F04E98;
+    border-radius: 22px;
+    background: white;
+    color: #1C1E23;
+    font-weight: 600;
+    font-size: 16px;
+    font-family: var(--font-display);
+    cursor: pointer;
+  }
+  .topnav__search:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .topnav__cta-primary {
+    height: 40px;
+    padding: 0 24px;
+    background: #0B64DD;
+    color: white;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 16px;
+    font-family: var(--font-display);
+    display: inline-flex; align-items: center;
+  }
+  .topnav__cta-primary:hover { text-decoration: underline; text-decoration-color: white; }
+  .topnav__cta-secondary {
+    height: 40px;
+    padding: 0 24px;
+    background: white;
+    border: 2px solid #0B64DD;
+    color: #0B64DD;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 16px;
+    font-family: var(--font-display);
+    display: inline-flex; align-items: center;
+  }
+  .topnav__cta-secondary:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  /* Anchor scroll spacing for sidenav-linked sections */
+  [id] { scroll-margin-top: calc(var(--topnav-h) + var(--secondary-nav-h) + 16px); }
+  /* Layout with sticky side nav */
+  .layout {
+    display: flex;
+    align-items: flex-start;
+    min-height: calc(100vh - var(--topnav-h) - var(--secondary-nav-h));
+    max-width: var(--content-max);
+    margin: 0 auto;
+  }
+  /* Safety padding when viewport is narrower than the container */
+  @media (max-width: 1432px) {
+    .topnav__upper-inner,
+    .topnav__primary-inner,
+    .secondary-nav__inner,
+    .article-hero__inner,
+    .layout {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+    /* preserve vertical padding on upper-inner */
+    .topnav__upper-inner { padding-top: 10px; padding-bottom: 10px; }
+    .article-hero__inner { padding-top: 80px; padding-bottom: 64px; }
+  }
+  .sidenav {
+    width: var(--leftnav-w);
+    flex-shrink: 0;
+    position: sticky;
+    top: calc(var(--topnav-h) + var(--secondary-nav-h));
+    align-self: flex-start;
+    height: calc(100vh - var(--topnav-h) - var(--secondary-nav-h));
+    overflow-y: auto;
+    padding: 56px 48px 32px 0;
+    background: var(--color-white);
+    transition: top 0.25s ease, padding-top 0.25s ease, height 0.25s ease;
+  }
+  body.nav-hidden .sidenav {
+    top: var(--secondary-nav-h);
+    height: calc(100vh - var(--secondary-nav-h));
+  }
+  .sidenav__title {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--color-manatee);
+    margin: 0 0 24px 0;
+  }
+  /* Sidenav GO TO PAGE eyebrow — mirrors .hero-eyebrow for column-aligned rules */
+  .sidenav__eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-manatee);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .sidenav__eyebrow-slash {
+    color: var(--color-manatee);
+    font-weight: 400;
+  }
+  .sidenav__eyebrow-rule {
+    height: 1px;
+    background: var(--color-mystic);
+    margin: 12px 0 32px 0;
+  }
+  /* Homepage only: shift entire sidenav down so eyebrow rule aligns with FEATURED POST rule */
+  /* Pages with FEATURED POST eyebrow: shift sidenav down so its rule aligns with the hero rule */
+  body.page-main .sidenav,
+  body.page-obs .sidenav,
+  body.page-sec .sidenav { padding-top: 180px; }
+  /* Hide standard primary nav on obs/sec — sidenav uses lab-specific secondary block instead */
+  body.page-obs .sidenav__nav,
+  body.page-sec .sidenav__nav { display: none; }
+  .sidenav__nav {
+    display: flex; flex-direction: column;
+    gap: 18px;
+    padding-bottom: 32px;
+  }
+  .sidenav__link {
+    display: flex; align-items: center;
+    gap: 6px;
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--color-tuna);
+    padding: 2px 0;
+  }
+  .sidenav__link span { flex: 0 0 auto; }
+  .sidenav__link svg { width: 14px; height: 14px; margin-left: 0; color: var(--color-tuna); }
+  .sidenav__link:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  /* Article-specific secondary nav stacked inside the sidenav */
+  .sidenav__secondary {
+    margin-top: 32px;
+  }
+  .sidenav__secondary[hidden] { display: none; }
+  .sidenav__secondary .sidenav__title { margin-bottom: 16px; }
+  .sidenav__secondary-list {
+    display: flex; flex-direction: column;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .sidenav__secondary-link {
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--color-tuna);
+  }
+  .sidenav__secondary-link--active {
+    color: #0B64DD;
+    font-weight: 700;
+  }
+  .sidenav__secondary-link:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .sidenav__actions {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding-top: 24px;
+    border-top: 1px solid var(--color-mystic);
+  }
+  .sidenav__btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--color-mystic);
+    border-radius: 4px;
+    padding: 5px 9px;
+    font-size: 14px;
+    color: var(--color-tuna);
+    background: var(--color-white);
+  }
+  .sidenav__btn:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .sidenav__btn svg { width: 15px; height: 15px; }
+  .sidenav__subscribe {
+    margin-top: 16px;
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 2px solid #2E4FA3;
+    border-radius: 4px;
+    padding: 6px 12px;
+    color: #2E4FA3;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .sidenav__subscribe:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  .main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .container {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 0 var(--section-px);
+  }
+
+  /* Typography */
+  .h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 46px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--color-tuna);
+    margin: 0;
+  }
+  .h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.3;
+    color: var(--color-tuna);
+    margin: 0;
+  }
+  .h4-large {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(20px, 1.8vw, 26px);
+    line-height: 1.2;
+    color: var(--color-tuna);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .body-muted { font-size: 16px; line-height: 1.875; color: var(--color-manatee); }
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--color-manatee);
+    line-height: 1.6;
+  }
+  .link-blue {
+    color: var(--color-curious-blue);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* Chips */
+  .chip {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--color-curious-blue);
+    color: var(--color-curious-blue);
+    background: var(--color-white);
+    border-radius: 16px;
+    padding: 3px 13px;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+    cursor: pointer;
+    text-decoration: none;
+    user-select: none;
+  }
+  .chip:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--color-curious-blue);
+  }
+  .chip:focus-visible {
+    outline: 2px solid var(--color-curious-blue);
+    outline-offset: 2px;
+  }
+  /* Blog list filter chip — active state (Observability Lab / Security Lab) */
+  .blog-list__categories .chip.is-active {
+    background: var(--color-curious-blue);
+    color: #fff;
+  }
+  .blog-list__categories .chip.is-active:hover {
+    text-decoration: underline;
+    text-decoration-color: #fff;
+  }
+
+  /* ============================
+     Sections
+     ============================ */
+  .section { padding: 48px 0; }
+  .section--lg { padding: 64px 0; }
+
+  /* ============================
+     Hero — New and popular
+     ============================ */
+  .hero-grid {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 40px;
+    align-items: stretch;
+  }
+
+  /* Featured card — image on top, content below; image flex-grows to match right column height */
+  .featured-card {
+    border: 1px solid var(--color-mystic);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .featured-card:hover .h4-large {
+    text-decoration: underline;
+    text-decoration-color: var(--color-tuna);
+  }
+  .featured-card__media {
+    flex: 1 1 auto;
+    min-height: 320px;
+    background: var(--color-mystic);
+  }
+  .featured-card__body {
+    padding: 24px;
+    display: flex; flex-direction: column;
+    gap: 16px;
+  }
+
+  .meta-row {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 8px 16px;
+  }
+
+  /* Small article links list */
+  .small-articles {
+    display: flex; flex-direction: column;
+    gap: 32px;
+  }
+  .small-article {
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--color-mystic);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .small-article .h4 { font-size: 18px; line-height: 1.3; }
+  .small-article:last-of-type { border-bottom: none; padding-bottom: 0; }
+
+  .view-all {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--color-curious-blue);
+    font-weight: 700;
+    font-size: 16px;
+    margin-top: 16px;
+  }
+  .view-all:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  /* ============================
+     Latest — 3-up card grid
+     ============================ */
+  .latest-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin-top: 48px;
+  }
+  .latest-more {
+    display: flex;
+    justify-content: center;
+    margin-top: 48px;
+  }
+  .latest-card {
+    border: 1px solid var(--color-mystic);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .latest-card:hover .h4 {
+    text-decoration: underline;
+    text-decoration-color: var(--color-tuna);
+  }
+  .latest-card__media {
+    height: 260px;
+    background: var(--color-mystic);
+  }
+  .latest-card__body {
+    padding: 24px;
+    display: flex; flex-direction: column;
+    gap: 12px;
+  }
+  .latest-card__excerpt {
+    color: var(--color-manatee);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ============================
+     Tutorials section — no bg
+     ============================ */
+  .tutorials__intro {
+    margin-top: 24px;
+    color: var(--color-tuna);
+    font-size: 16px;
+    line-height: 1.6;
+    max-width: 880px;
+  }
+  .tutorials__intro p { margin: 0 0 8px 0; }
+  .tutorial-list {
+    margin-top: 48px;
+    display: flex; flex-direction: column;
+    gap: 12px;
+  }
+  .tutorial-card {
+    display: flex; gap: 20px; align-items: center;
+    border: 1px solid var(--color-mystic);
+    border-radius: 8px;
+    padding: 24px;
+  }
+  .tutorial-card:hover .tutorial-card__title {
+    text-decoration: underline;
+    text-decoration-color: var(--color-tuna);
+  }
+  .tutorial-card__icon {
+    width: 30px; height: 30px;
+    flex-shrink: 0;
+    color: var(--color-tuna);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tutorial-card__title { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--color-tuna); margin: 0 0 6px 0; }
+  .tutorial-card__desc { font-size: 16px; color: var(--color-manatee); margin: 0; }
+
+  /* ============================
+     Examples section
+     ============================ */
+  .examples-head { margin-bottom: 48px; }
+  .examples-head__subtitle { margin-top: 24px; color: var(--color-manatee); font-size: 16px; max-width: 800px; }
+  .examples-group { margin-bottom: 40px; }
+  .examples-group__title {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--color-tuna);
+    margin: 0 0 16px 0;
+  }
+  .examples-list {
+    border: 1px solid var(--color-mystic);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .examples-list__item {
+    display: flex; align-items: center; gap: 16px;
+    padding: 24px;
+    border-bottom: 1px solid var(--color-mystic);
+  }
+  .examples-list__item:last-child { border-bottom: none; }
+  .examples-list__item:hover .examples-list__item-title {
+    text-decoration: underline;
+    text-decoration-color: var(--color-tuna);
+  }
+  .examples-list__item-title {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--color-tuna);
+    flex: 1;
+  }
+  .examples-list__tags { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .examples-list__tags .chip { background: var(--color-black-haze); }
+
+  /* ============================
+     Integrations section — untouched
+     ============================ */
+  .integrations-head { margin-bottom: 48px; }
+  .integrations-head__subtitle { margin-top: 24px; color: var(--color-manatee); font-size: 16px; max-width: 980px; line-height: 1.875; }
+
+  .tab-bar {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 32px;
+  }
+  .tab {
+    border: 1px solid var(--color-mystic);
+    background: var(--color-white);
+    border-radius: 18px;
+    padding: 9px 17px;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--color-tuna);
+  }
+  .tab:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .tab.is-active {
+    background: var(--color-tuna);
+    color: #fff;
+    border-color: var(--color-tuna);
+  }
+
+  .integrations-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+  .integration-card {
+    border: 1px solid var(--color-mystic);
+    border-radius: 8px;
+    padding: 24px;
+    display: flex; gap: 16px;
+  }
+  .integration-card:hover .integration-card__title {
+    text-decoration: underline;
+    text-decoration-color: var(--color-tuna);
+  }
+  .integration-card__logo {
+    width: 25px; height: 25px; flex-shrink: 0;
+    margin-top: 6px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .integration-card__title { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--color-tuna); margin: 0 0 16px 0; }
+  .integration-card__desc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-tuna);
+    margin: 0 0 16px 0;
+  }
+  .integration-card__cat {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-manatee);
+    margin-top: auto;
+  }
+
+  /* ============================
+     CTA section — no bg
+     ============================ */
+  .cta {
+    margin-top: 48px;
+    border: 1px solid var(--color-mystic);
+    border-radius: 12px;
+    padding: 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  .cta__title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 24px;
+    line-height: 1.3;
+    color: var(--color-tuna);
+    margin: 0 0 24px 0;
+    letter-spacing: -0.01em;
+  }
+  .cta__body { font-size: 16px; color: var(--color-manatee); line-height: 1.6; margin: 0; }
+  .cta__actions { display: flex; gap: 16px; justify-content: flex-end; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 16px 28px;
+    border-radius: 6px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 220px;
+    text-align: center;
+  }
+  .btn--primary {
+    background: var(--color-tuna);
+    color: #fff;
+  }
+  .btn--primary:hover { text-decoration: underline; text-decoration-color: #fff; }
+  .btn--secondary {
+    background: var(--color-white);
+    color: var(--color-tuna);
+    border: 1px solid var(--color-mystic);
+  }
+  .btn--secondary:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  /* ============================
+     Article pages (Tutorial / Article / Example)
+     ============================ */
+  .page[hidden] { display: none; }
+
+  .article-eyebrow {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #2E4FA3;
+    margin: 0 0 12px 0;
+  }
+  .article-breadcrumb {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--color-curious-blue);
+    margin-bottom: 16px;
+  }
+  .article-breadcrumb:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+
+  .article-header {
+    padding: 48px 0 32px;
+  }
+  .article-header__subtitle {
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--color-tuna);
+    margin: 24px 0 0 0;
+    max-width: 920px;
+  }
+  .article-header__chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 24px;
+  }
+  .article-author {
+    display: flex; align-items: center; gap: 16px;
+    margin-top: 32px;
+  }
+  .article-author .avatar {
+    width: 64px; height: 64px; font-size: 20px;
+  }
+  .article-author__info { display: flex; flex-direction: column; gap: 4px; }
+  .article-author__name { font-size: 16px; color: var(--color-tuna); }
+  .article-author__name a { color: var(--color-curious-blue); font-weight: 500; }
+  .article-author__date {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--color-manatee);
+  }
+
+  /* ============================
+     Article body — long-form blog typography
+     Spacing scale tuned for readability:
+     - Body 17px / 1.7 leading
+     - Paragraphs separated by 28px (~ one line)
+     - H2 has 64px top, 20px bottom (creates section breaks)
+     - H3 has 40px top, 12px bottom
+     - Lists, blockquotes, callouts, figures: 32px above and below
+     ============================ */
+  .article-layout {
+    padding-bottom: 96px;
+    max-width: none;
+  }
+  .article-body { min-width: 0; }
+
+  /* Default rhythm: all direct children get 28px separation */
+  .article-body > * + * { margin-top: 28px; }
+  .article-body > *:first-child { margin-top: 0; }
+
+  /* Body text */
+  .article-body p {
+    font-size: 18px;
+    line-height: 1.7;
+    color: var(--color-tuna);
+    margin: 0;
+  }
+
+  /* Headings — open up vertical breathing room above */
+  .article-body h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 36px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--color-tuna);
+    margin: 0;
+  }
+  .article-body > h2 + * { margin-top: 20px; }     /* tight gap after h2 */
+  .article-body > * + h2 { margin-top: 64px; }     /* big gap before h2 */
+  .article-body > h2:first-child { margin-top: 0; }
+
+  .article-body h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.3;
+    color: var(--color-tuna);
+    margin: 0;
+  }
+  .article-body > h3 + * { margin-top: 12px; }
+  .article-body > * + h3 { margin-top: 40px; }
+
+  /* Lists */
+  .article-body ul,
+  .article-body ol {
+    padding-left: 24px;
+    margin: 0;
+  }
+  .article-body ul li,
+  .article-body ol li {
+    font-size: 18px;
+    line-height: 1.7;
+    color: var(--color-tuna);
+    margin-bottom: 8px;
+  }
+  .article-body ul li:last-child,
+  .article-body ol li:last-child { margin-bottom: 0; }
+  .article-body ul li strong,
+  .article-body ol li strong { font-weight: 700; }
+  .article-body > * + ul,
+  .article-body > * + ol { margin-top: 16px; }     /* slightly tighter than paragraph gap — list "belongs" to preceding text */
+
+  /* Inline links inside body */
+  .article-body a.inline-link {
+    color: var(--color-tuna);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  .article-body a.inline-link:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  /* Callout box — give it room to breathe */
+  .article-callout {
+    background: var(--color-black-haze);
+    border-radius: 8px;
+    padding: 28px 32px;
+    display: flex; gap: 20px;
+    align-items: flex-start;
+  }
+  .article-callout__icon {
+    width: 20px; height: 20px;
+    color: var(--color-curious-blue);
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .article-callout p {
+    font-size: 15px;
+    line-height: 1.65;
+    margin: 0;
+    color: var(--color-tuna);
+  }
+  .article-body > * + .article-callout,
+  .article-body > .article-callout + * { margin-top: 40px; }
+
+  /* Blockquote — pull-quote style */
+  .article-blockquote {
+    padding: 8px 0 8px 32px;
+    border-left: 3px solid var(--color-curious-blue);
+  }
+  .article-blockquote strong {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 1.35;
+    color: var(--color-tuna);
+  }
+  .article-body > * + .article-blockquote,
+  .article-body > .article-blockquote + * { margin-top: 40px; }
+
+  /* Figure */
+  .article-figure {
+    background: var(--color-black-haze);
+    border: 1px solid var(--color-mystic);
+    border-radius: 8px;
+    padding: 64px 24px;
+    text-align: center;
+    color: var(--color-manatee);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .article-body > * + .article-figure,
+  .article-body > .article-figure + * { margin-top: 48px; }
+
+  /* "Next" card — appears at end of tutorial */
+  .article-next-card {
+    background: var(--color-black-haze);
+    border-radius: 8px;
+    padding: 28px 32px;
+  }
+  .article-next-card__label {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--color-manatee);
+    margin: 0 0 12px 0;
+  }
+  .article-next-card__link {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--color-tuna);
+  }
+  .article-body > * + .article-next-card { margin-top: 64px; }
+
+  /* Report-an-issue link — set apart from article body */
+  .article-report {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: #f17eb3;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .article-report:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .article-body > * + .article-report { margin-top: 48px; }
+
+  /* Prompt library specific (centered hero) */
+  .prompt-hero {
+    text-align: center;
+    padding: 48px 32px 72px;
+    max-width: 752px;
+    margin: 0 auto;
+  }
+  .prompt-hero__icon {
+    width: 180px; height: 180px;
+    margin: 0 auto 24px;
+    background: var(--color-black-haze);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #48EFCF;
+  }
+  .prompt-hero h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 39px;
+    line-height: 1;
+    color: var(--color-tuna);
+    margin: 0 0 24px 0;
+  }
+  .prompt-hero p {
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--color-manatee);
+    margin: 0 0 12px 0;
+  }
+
+  /* Responsive — single mobile breakpoint, keep desktop 3-col until 900px */
+  @media (max-width: 900px) {
+    :root { --topnav-h: 64px; --secondary-nav-h: 52px; }
+    .topnav__upper { display: none; }
+    .topnav__primary { height: 64px; padding: 0 16px; }
+    .topnav__menu { display: none; }
+    .topnav__cta-secondary { display: none; }
+    .sidenav { display: none; }
+    .secondary-nav__inner { overflow-x: auto; gap: 8px; }
+    .secondary-nav__item { font-size: 11px; padding: 5px 10px; flex-shrink: 0; }
+    .hero-grid { grid-template-columns: 1fr; }
+    .latest-grid { grid-template-columns: 1fr; }
+    .integrations-grid { grid-template-columns: 1fr; }
+    .cta { grid-template-columns: 1fr; }
+    .cta__actions { justify-content: flex-start; }
+    .section { padding: 32px 0; }
+    .section--lg { padding: 40px 0; }
+    .cta { padding: 32px; }
+  }
+
+  /* ============================================================
+     ARTICLE-HERO-V2 — REMOVE TO REVERT
+     Scoped to body.article-hero-v2 (toggled by JS for article page)
+     To revert: delete this entire block AND the line marked
+     "ARTICLE-HERO-V2 — REMOVE TO REVERT" in the showPage() function.
+     ============================================================ */
+  body.article-hero-v2 .article-hero { background: #F5F8FB; }
+
+  /* Larger H1, only inside the article hero */
+  body.article-hero-v2 .article-hero__inner > .h1 {
+    font-size: 46px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    max-width: 1100px;
+  }
+
+  /* Larger, manatee-grey subtitle */
+  body.article-hero-v2 .article-hero__inner > .article-header__subtitle {
+    font-size: 25px;
+    line-height: 1.5;
+    color: var(--color-manatee);
+    max-width: 1080px;
+    margin-top: 32px;
+  }
+
+  /* Chip color override — bright Figma blue + uppercase tracking */
+  body.article-hero-v2 .article-hero__inner .chip {
+    border-color: #2FAEEA;
+    color: #2FAEEA;
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
+  /* Author block — overlapping avatar stack */
+  body.article-hero-v2 .article-author { margin-top: 48px; gap: 16px; }
+  body.article-hero-v2 .article-author__avatars {
+    display: inline-flex;
+    align-items: center;
+  }
+  body.article-hero-v2 .article-author__avatar {
+    width: 64px; height: 64px;
+    font-size: 20px;
+    border: 2px solid #F5F8FB;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
+    margin-right: -8px;
+    position: relative;
+  }
+  body.article-hero-v2 .article-author__avatar:nth-child(1) { z-index: 3; }
+  body.article-hero-v2 .article-author__avatar:nth-child(2) { z-index: 2; }
+  body.article-hero-v2 .article-author__avatar:nth-child(3) { z-index: 1; margin-right: 0; }
+
+  /* Author name + date typography */
+  body.article-hero-v2 .article-author__info { gap: 4px; }
+  body.article-hero-v2 .article-author__name {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--color-manatee);
+    font-weight: 400;
+  }
+  body.article-hero-v2 .article-author__name a {
+    color: var(--color-tuna);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  body.article-hero-v2 .article-author__name a:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--color-tuna);
+  }
+  body.article-hero-v2 .article-author__date {
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-manatee);
+    letter-spacing: 0;
+  }
+  /* Sidenav secondary list — tighter spacing on article page only */
+  body.article-hero-v2 .sidenav__secondary-list { gap: 10px; }
+  body.article-hero-v2 .sidenav__secondary-link { font-size: 15px; line-height: 1.5; }
+
+  /* Sidenav arrow flush with text — article page only */
+  body.article-hero-v2 .sidenav__link { gap: 6px; }
+  body.article-hero-v2 .sidenav__link span { flex: 0 0 auto; }
+  body.article-hero-v2 .sidenav__link svg { margin-left: 0; }
+
+  /* ============================================================
+     Figma type scale — applies to article body only
+     Mier B is the spec; falling back to Manrope where unavailable.
+     ============================================================ */
+
+  /* Page background — slightly off-white per Figma */
+  /* Removed per request — keeping original page background */
+
+  /* H1 in hero — already 61px; tighten color to darkest */
+  body.article-hero-v2 .article-hero__inner > .h1 {
+    color: #1C1E23;
+  }
+
+  /* Subtitle stays 25px Inter Regular manatee — already correct in V2 */
+
+  /* Chip — Extra Small Bold spec: 12px Inter Bold, letter-spacing 2px */
+  body.article-hero-v2 .article-hero__inner .chip {
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  /* Article body typography — full Figma scale */
+  body.article-hero-v2 .article-body {
+    color: #2E3137;
+  }
+
+  /* Paragraph: 16px / 1.6 Inter Regular (reverting 18px bump) */
+  body.article-hero-v2 .article-body p {
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #2E3137;
+  }
+
+  /* List items match paragraph */
+  body.article-hero-v2 .article-body ul li,
+  body.article-hero-v2 .article-body ol li {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #2E3137;
+  }
+
+  /* H2 — 39.06px / 1.4 Mier B Bold */
+  body.article-hero-v2 .article-body h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 39.06px;
+    line-height: 1.4;
+    letter-spacing: 0;
+    color: #2E3137;
+  }
+
+  /* H3 — 31.25px / 1.5 */
+  body.article-hero-v2 .article-body h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 31.25px;
+    line-height: 1.5;
+    letter-spacing: 0;
+    color: #2E3137;
+  }
+
+  /* H4 — 25px / 1.5 (would apply to .h4 if present in article-body) */
+  body.article-hero-v2 .article-body h4,
+  body.article-hero-v2 .article-body .h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 25px;
+    line-height: 1.5;
+    letter-spacing: 0;
+    color: #2E3137;
+  }
+
+  /* H5 — 20px / 1.5 */
+  body.article-hero-v2 .article-body h5 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.5;
+    letter-spacing: 0;
+    color: #2E3137;
+  }
+
+  /* Small text (callout body, figure caption, related-content metadata) */
+  body.article-hero-v2 .article-body .small,
+  body.article-hero-v2 .article-callout p,
+  body.article-hero-v2 .article-figure {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Link — Inter Bold 16px / 1.5 inside article body */
+  body.article-hero-v2 .article-body a.inline-link {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #2E3137;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  /* Mono-style eyebrows / labels — Extra Small Bold (12px / 2px tracking) */
+  body.article-hero-v2 .article-next-card__label,
+  body.article-hero-v2 .article-figure {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  /* Border color spec */
+  body.article-hero-v2 .article-callout,
+  body.article-hero-v2 .article-figure,
+  body.article-hero-v2 .article-next-card {
+    border-color: #E6ECF3;
+  }
+
+  /* ============================================================
+     END ARTICLE-HERO-V2
+     ============================================================ */
+
+  /* ============================================================
+     BLOG LIST PAGE (data-page="blogs")
+     ============================================================ */
+  .blog-list { padding: 0 0 96px 0; }
+  .blog-list__categories { margin-bottom: 48px; }
+  .blog-list__filters {
+    display: flex; flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 0;
+  }
+  .blog-list__filter {
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--color-tuna);
+    padding: 4px 0;
+    cursor: pointer;
+    background: none; border: none;
+  }
+  .blog-list__filter:hover { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .blog-list__filter--active { color: #0B64DD; font-weight: 700; }
+
+  .blog-list__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 48px 32px;
+  }
+  .blog-card {
+    border: 1px solid var(--color-mystic);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .blog-card:hover .h4 { text-decoration: underline; text-decoration-color: var(--color-tuna); }
+  .blog-card__media {
+    height: 227px;
+    background: var(--color-mystic);
+  }
+  .blog-card__body {
+    padding: 24px;
+    display: flex; flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .blog-card__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 25px;
+    line-height: 1.3;
+    color: var(--color-tuna);
+    margin: 0;
+  }
+  .blog-card__excerpt {
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-manatee);
+    margin: 0;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .blog-card__author {
+    display: flex; align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .blog-card__avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--color-mystic);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--color-tuna);
+  }
+  .blog-card__byline {
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-manatee);
+  }
+  .blog-card__byline strong { color: var(--color-tuna); font-weight: 700; }
+
+  /* Pagination */
+  .blog-pagination {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    margin-top: 80px;
+  }
+  .blog-pagination__cell {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-tuna);
+    background: none; border: none;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .blog-pagination__cell:hover { background: var(--color-black-haze); }
+  .blog-pagination__cell--active { background: var(--color-tuna); color: #fff; }
+  .blog-pagination__cell--active:hover { background: var(--color-tuna); }
+
+  @media (max-width: 900px) {
+    .blog-list__grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body class="page-main">
+
+  <header class="topnav">
+    <div class="topnav__upper">
+      <div class="topnav__upper-inner">
+        <div class="topnav__announce">
+          <span class="topnav__badge">
+            <svg viewBox="0 0 10 10" fill="currentColor"><path d="M5 0l1 3.5L9.5 4L7 6L8 9.5L5 7.5L2 9.5L3 6L0.5 4L4 3.5L5 0Z"/></svg>
+            NEW
+          </span>
+          <span class="topnav__announce-text">The executive guide to Generative AI</span>
+          <a class="topnav__announce-link" href="#">Read more</a>
+        </div>
+        <div class="topnav__utility">
+          <a href="#">About us</a>
+          <a href="#">Partners</a>
+          <a href="#">Support</a>
+          <span class="topnav__sep"></span>
+          <a href="#">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M1.5 8h13M8 1.5c1.7 1.7 2.5 3.7 2.5 6.5s-0.8 4.8-2.5 6.5M8 1.5C6.3 3.2 5.5 5.2 5.5 8s0.8 4.8 2.5 6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            EN
+          </a>
+          <a href="#">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="5.5" r="3" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Login
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="topnav__primary">
+      <div class="topnav__primary-inner">
+        <div class="topnav__brand">
+          <a class="topnav__logo" href="#">
+            <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0" y="0" width="16" height="16" rx="2" fill="#FED10A"/>
+              <rect x="20" y="0" width="16" height="16" rx="2" fill="#00BFB3"/>
+              <rect x="0" y="20" width="16" height="16" rx="2" fill="#FA744E"/>
+              <rect x="20" y="20" width="16" height="16" rx="2" fill="#0077CC"/>
+            </svg>
+            <span class="topnav__logo-text">elastic</span>
+          </a>
+          <nav class="topnav__menu">
+            <a href="#">Elasticsearch</a>
+            <a href="#">Solutions</a>
+            <a href="#">Enterprise</a>
+            <a href="#">Resources</a>
+            <a href="#">Docs</a>
+            <a href="#">Pricing</a>
+          </nav>
+        </div>
+        <div class="topnav__actions">
+          <button class="topnav__search" type="button">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M14 14L11 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Search
+          </button>
+          <a class="topnav__cta-primary" href="#">Start free trial</a>
+          <a class="topnav__cta-secondary" href="#">Contact sales</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="secondary-nav" aria-label="Lab sections">
+    <div class="secondary-nav__inner">
+      <a class="secondary-nav__item" data-lab="es" href="#"><span class="secondary-nav__bracket">[S]</span>ELASTICSEARCH LAB</a>
+      <a class="secondary-nav__item" data-lab="obs" href="#"><span class="secondary-nav__bracket">[O]</span>OBSERVABILITY LAB</a>
+      <a class="secondary-nav__item" data-lab="sec" href="#"><span class="secondary-nav__bracket">[S]</span>SECURITY LAB</a>
+      <a class="secondary-nav__item" href="#"><span class="secondary-nav__bracket">[N]</span>NEWS</a>
+    </div>
+  </nav>
+
+  <!-- Article heroes — full-width banners shown only on the matching article page -->
+  <section class="article-hero" data-hero="tutorial" hidden>
+    <div class="article-hero__inner">
+      <a class="article-breadcrumb" href="#" data-back="main">← Back</a>
+      <p class="article-eyebrow">Tutorials</p>
+      <h1 class="h1">Install Elasticsearch</h1>
+    </div>
+  </section>
+
+  <section class="article-hero" data-hero="article" hidden>
+    <div class="article-hero__inner">
+      <a class="article-breadcrumb" href="#" data-back="main">← Blog</a>
+      <h1 class="h1">Top Vulnerabilities and Attack Vectors in Agentic AI Systems</h1>
+      <p class="article-header__subtitle">Explore why search engines and indexed search remain the foundation for scalable, accurate, enterprise-grade AI, even in the age of MCP, federated search, and large context windows.</p>
+      <div class="article-header__chips">
+        <span class="chip" tabindex="0" role="button">Inside Elastic</span>
+        <span class="chip" tabindex="0" role="button">Relevance</span>
+        <span class="chip" tabindex="0" role="button">Agentic AI</span>
+      </div>
+      <div class="article-author">
+        <div class="article-author__avatars">
+          <span class="avatar avatar--c article-author__avatar">DS</span>
+          <span class="avatar avatar--a article-author__avatar">TB</span>
+          <span class="avatar avatar--b article-author__avatar">QH</span>
+        </div>
+        <div class="article-author__info">
+          <span class="article-author__name">By <a href="#">Dayananda Srinivas</a>, <a href="#">Tim Brooks</a>, and <a href="#">Quin Hoxie</a></span>
+          <span class="article-author__date">On March 5, 2026</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="article-hero" data-hero="example" hidden>
+    <div class="article-hero__inner">
+      <a class="article-breadcrumb" href="#" data-back="main">← Back</a>
+      <h1 class="h1">Prompt Library</h1>
+      <p class="article-header__subtitle" style="color: var(--color-manatee);">Level up your custom agents with tried-and-true prompts</p>
+    </div>
+  </section>
+
+  <section class="article-hero" data-hero="blogs" hidden>
+    <div class="article-hero__inner">
+      <a class="article-breadcrumb" href="#" data-back="main">← Back</a>
+      <h1 class="h1">Title: Tag topics</h1>
+    </div>
+  </section>
+
+  <div class="layout">
+
+    <aside class="sidenav">
+      <div class="sidenav__eyebrow">
+        <span class="sidenav__eyebrow-slash">/</span>
+        <span>GO TO PAGE</span>
+      </div>
+      <div class="sidenav__eyebrow-rule"></div>
+      <nav class="sidenav__nav">
+        <a class="sidenav__link" href="#blogs">
+          <span>Blogs</span>
+          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 5.25L7 9.25L11 5.25" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="sidenav__link" href="#tutorials">
+          <span>Tutorials</span>
+          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 5.25L7 9.25L11 5.25" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="sidenav__link" href="#examples">
+          <span>Examples</span>
+          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 5.25L7 9.25L11 5.25" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="sidenav__link" href="#integrations">
+          <span>Integrations</span>
+        </a>
+      </nav>
+
+      <!-- Tutorial article secondary nav (In this series) -->
+      <div class="sidenav__secondary" data-secondary="tutorial" hidden>
+        <p class="sidenav__title">In this series</p>
+        <div class="sidenav__secondary-list">
+          <a class="sidenav__secondary-link sidenav__secondary-link--active" href="#">Elastic Cloud</a>
+          <a class="sidenav__secondary-link" href="#">Docker</a>
+          <a class="sidenav__secondary-link" href="#">Serverless</a>
+          <a class="sidenav__secondary-link" href="#">Start-Local</a>
+          <a class="sidenav__secondary-link" href="#">Cloud ID &amp; API keys</a>
+        </div>
+        <div class="sidenav__actions">
+          <button class="sidenav__btn" type="button">
+            <svg viewBox="0 0 15 15" fill="none"><rect x="3" y="3" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="1" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+            Copy
+          </button>
+          <button class="sidenav__btn" type="button">
+            <svg viewBox="0 0 18 18" fill="none"><circle cx="14" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="14" cy="14" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M5.7 8L12.3 5M5.7 10L12.3 13" stroke="currentColor" stroke-width="1.5"/></svg>
+            Share
+          </button>
+          <button class="sidenav__btn" type="button">
+            <svg viewBox="0 0 18 18" fill="none"><path d="M3 11c3 0 6 3 6 6M3 6c5 0 11 5 11 11M3 15a1 1 0 100-2 1 1 0 000 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Subscribe
+          </button>
+        </div>
+      </div>
+
+      <!-- MCP article secondary nav (Jump to) -->
+      <div class="sidenav__secondary" data-secondary="article" hidden>
+        <p class="sidenav__title">Jump to</p>
+        <div class="sidenav__secondary-list">
+          <a class="sidenav__secondary-link" href="#">What MCP actually is (and what it is not)</a>
+          <a class="sidenav__secondary-link" href="#">Modern retrieval requires query intelligence, not just data access</a>
+          <a class="sidenav__secondary-link" href="#">MCP-based retrieval is federated search in disguise</a>
+          <a class="sidenav__secondary-link" href="#">Why federated search breaks down at enterprise scale</a>
+          <a class="sidenav__secondary-link" href="#">The power of an indexed search</a>
+        </div>
+        <div class="sidenav__actions">
+          <button class="sidenav__btn" type="button">
+            <svg viewBox="0 0 15 15" fill="none"><rect x="3" y="3" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="1" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+            Copy
+          </button>
+          <button class="sidenav__btn" type="button">
+            <svg viewBox="0 0 18 18" fill="none"><circle cx="14" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="14" cy="14" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M5.7 8L12.3 5M5.7 10L12.3 13" stroke="currentColor" stroke-width="1.5"/></svg>
+            Share
+          </button>
+        </div>
+        <a class="sidenav__subscribe" href="#">
+          Subscribe
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 10c2 0 4 2 4 4M3 7c4 0 7 3 7 7M3 13a1 1 0 100-2 1 1 0 000 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+      </div>
+
+      <!-- Example page secondary nav (Categories) -->
+      <div class="sidenav__secondary" data-secondary="example" hidden>
+        <p class="sidenav__title">Categories</p>
+        <div class="sidenav__secondary-list">
+          <a class="sidenav__secondary-link" href="#">AI Assisted Development</a>
+          <a class="sidenav__secondary-link" href="#">Business Automation</a>
+          <a class="sidenav__secondary-link" href="#">Business communication</a>
+          <a class="sidenav__secondary-link" href="#">Code Generation &amp; Automation</a>
+          <a class="sidenav__secondary-link sidenav__secondary-link--active" href="#">Generating an evaluation dataset</a>
+          <a class="sidenav__secondary-link" href="#">Meeting management and summarization tools</a>
+          <a class="sidenav__secondary-link" href="#">Negotiation strategies</a>
+          <a class="sidenav__secondary-link" href="#">Professional development</a>
+          <a class="sidenav__secondary-link" href="#">Security Operations and governance</a>
+        </div>
+        <div class="sidenav__actions">
+          <button class="sidenav__btn" type="button">
+            <svg viewBox="0 0 15 15" fill="none"><rect x="3" y="3" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="1" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+            Copy
+          </button>
+          <button class="sidenav__btn" type="button">
+            <svg viewBox="0 0 18 18" fill="none"><circle cx="14" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="14" cy="14" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M5.7 8L12.3 5M5.7 10L12.3 13" stroke="currentColor" stroke-width="1.5"/></svg>
+            Share
+          </button>
+        </div>
+        <a class="sidenav__subscribe" href="#">
+          Subscribe
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 10c2 0 4 2 4 4M3 7c4 0 7 3 7 7M3 13a1 1 0 100-2 1 1 0 000 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+      </div>
+
+      <!-- Blogs page secondary: categories list -->
+      <div class="sidenav__secondary" data-secondary="blogs" hidden>
+        <div class="sidenav__eyebrow">
+          <span class="sidenav__eyebrow-slash">/</span>
+          <span>CATEGORIES</span>
+        </div>
+        <div class="sidenav__eyebrow-rule"></div>
+        <div class="sidenav__secondary-list">
+          <a class="sidenav__secondary-link" href="#">All Blogs</a>
+          <a class="sidenav__secondary-link sidenav__secondary-link--active" href="#">Agentic AI</a>
+          <a class="sidenav__secondary-link" href="#">AI</a>
+          <a class="sidenav__secondary-link" href="#">Developer Experience</a>
+          <a class="sidenav__secondary-link" href="#">Elastic Cloud Hosted</a>
+          <a class="sidenav__secondary-link" href="#">Elastic Cloud Serverless</a>
+          <a class="sidenav__secondary-link" href="#">How To</a>
+          <a class="sidenav__secondary-link" href="#">Hybrid Search</a>
+          <a class="sidenav__secondary-link" href="#">Index Data</a>
+          <a class="sidenav__secondary-link" href="#">Inside Elastic</a>
+          <a class="sidenav__secondary-link" href="#">Integrations</a>
+        </div>
+        <div class="sidenav__eyebrow" style="margin-top: 32px;">
+          <span class="sidenav__eyebrow-slash">/</span>
+          <span>CODING LANGUAGES</span>
+        </div>
+        <div class="sidenav__eyebrow-rule"></div>
+        <a class="sidenav__subscribe" href="#">
+          Subscribe
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 10c2 0 4 2 4 4M3 7c4 0 7 3 7 7M3 13a1 1 0 100-2 1 1 0 000 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+      </div>
+
+      <!-- Observability Lab sidenav -->
+      <div class="sidenav__secondary" data-secondary="obs" hidden>
+        <div class="sidenav__secondary-list">
+          <a class="sidenav__secondary-link" href="#obs-latest" data-scroll-section="obs-latest">Latest articles</a>
+        </div>
+      </div>
+
+      <!-- Security Lab sidenav -->
+      <div class="sidenav__secondary" data-secondary="sec" hidden>
+        <div class="sidenav__secondary-list">
+          <a class="sidenav__secondary-link" href="#sec-threat-command" data-scroll-section="sec-threat-command">Threat Command</a>
+          <a class="sidenav__secondary-link" href="#sec-product-updates" data-scroll-section="sec-product-updates">Product Updates</a>
+          <a class="sidenav__secondary-link" href="#sec-reports" data-scroll-section="sec-reports">Reports</a>
+          <a class="sidenav__secondary-link" href="#sec-enablement" data-scroll-section="sec-enablement">Enablement</a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <div class="page" data-page="main">
+
+    <!-- HERO: New and popular -->
+    <section class="section--lg section--first">
+      <div class="container">
+        <h1 class="h1">New and popular on Search Labs</h1>
+
+        <div class="hero-eyebrow">
+          <span class="hero-eyebrow__slash">/</span>
+          <span>FEATURED POST</span>
+        </div>
+        <div class="hero-eyebrow__rule"></div>
+
+        <div class="hero-grid">
+          <a class="featured-card" href="#">
+            <div class="featured-card__media"></div>
+            <div class="featured-card__body">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Agentic AI</span>
+                <span class="chip" tabindex="0" role="button">Integrations</span>
+                <span class="meta">March 10, 2026</span>
+              </div>
+              <h2 class="h4-large">SearchClaw: Bring Elasticsearch to OpenClaw with composable skills</h2>
+            </div>
+          </a>
+
+          <div class="small-articles">
+            <a class="small-article" href="#">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Agentic AI</span>
+                <span class="chip" tabindex="0" role="button">Inside Elastic</span>
+                <span class="meta">March 9, 2026</span>
+              </div>
+              <h3 class="h4">Building effective database retrieval tools for context engineering</h3>
+            </a>
+
+            <a class="small-article" href="#">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Agentic AI</span>
+                <span class="chip" tabindex="0" role="button">Inside Elastic</span>
+                <span class="meta">March 6, 2026</span>
+              </div>
+              <h3 class="h4">Build task-aware agents with an expanded model catalog on Elastic Inference Service (EIS)</h3>
+            </a>
+
+            <a class="small-article" href="#">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Vector Database</span>
+                <span class="meta">February 25, 2026</span>
+              </div>
+              <h3 class="h4">Elasticsearch vector search is up to 8x faster than OpenSearch</h3>
+            </a>
+
+            <a class="small-article" href="#">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Agentic AI</span>
+                <span class="chip" tabindex="0" role="button">AI tools</span>
+                <span class="meta">January 22, 2026</span>
+              </div>
+              <h3 class="h4">Agent Builder, beyond the chatbox: Introducing Augmented Infrastructure</h3>
+            </a>
+
+            <a class="view-all" href="#">
+              View all
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M3.75 9h10.5M9 3.75L14.25 9 9 14.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LATEST -->
+    <section class="section">
+      <div class="container">
+        <h2 class="h1" id="blogs">Latest</h2>
+
+        <div class="latest-grid">
+          <a class="latest-card" href="#">
+            <div class="latest-card__media latest-card__media--a"></div>
+            <div class="latest-card__body">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Lorem ipsum</span>
+                <span class="chip" tabindex="0" role="button">Lorem ipsum</span>
+                <span class="meta">March 10, 2026</span>
+              </div>
+              <h3 class="h4">SearchClaw: Bring Elasticsearch to OpenClaw with composable skills</h3>
+              <p class="latest-card__excerpt">Give your local AI agent access to Elasticsearch data using OpenClaw, the open standard for composable AI skills.</p>
+            </div>
+          </a>
+
+          <a class="latest-card" href="#">
+            <div class="latest-card__media latest-card__media--b"></div>
+            <div class="latest-card__body">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Lorem ipsum</span>
+                <span class="chip" tabindex="0" role="button">Lorem ipsum</span>
+                <span class="meta">March 9, 2026</span>
+              </div>
+              <h3 class="h4">Building effective database retrieval tools for context engineering</h3>
+              <p class="latest-card__excerpt">Best practices for writing database retrieval tools for context engineering. Learn how to design and evaluate them.</p>
+            </div>
+          </a>
+
+          <a class="latest-card" href="#">
+            <div class="latest-card__media latest-card__media--c"></div>
+            <div class="latest-card__body">
+              <div class="meta-row">
+                <span class="chip" tabindex="0" role="button">Lorem ipsum</span>
+                <span class="chip" tabindex="0" role="button">Lorem ipsum</span>
+                <span class="meta">March 6, 2026</span>
+              </div>
+              <h3 class="h4">Build task-aware agents with an expanded model catalog on Elastic Inference Service (EIS)</h3>
+              <p class="latest-card__excerpt">Elastic Inference Service (EIS) expands its managed model catalog, enabling teams to build production-ready agents.</p>
+            </div>
+          </a>
+        </div>
+        <div class="latest-more">
+          <a class="btn btn--primary" href="#">View more articles</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- TUTORIALS -->
+    <section class="section--lg">
+      <div class="container">
+        <div>
+          <h2 class="h1" id="tutorials">Tutorials</h2>
+          <p class="body-muted" style="margin-top:24px;">Long-form guides to get you started</p>
+
+          <div class="tutorials__intro">
+            <p>Get started combining Elastic's search capabilities with cutting-edge machine-learning techniques, empowering you to create search solutions that deliver the precision and relevant results your users are looking for.</p>
+            <p>Once you've mastered the basics, explore our <a href="#" class="link-blue">examples</a> and <a href="#" class="link-blue">blog</a> to see learn how our experts suggest taking your search experience even further.</p>
+          </div>
+        </div>
+
+        <div class="tutorial-list">
+          <a class="tutorial-card" href="#">
+            <span class="tutorial-card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="tutorial-card__title">Install Elasticsearch</h3>
+              <p class="tutorial-card__desc">See some convenient options for installing Elasticsearch</p>
+            </div>
+          </a>
+
+          <a class="tutorial-card" href="#">
+            <span class="tutorial-card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+                <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="tutorial-card__title">Search Tutorial</h3>
+              <p class="tutorial-card__desc">Create a complete search solution using Elasticsearch</p>
+            </div>
+          </a>
+
+          <a class="tutorial-card" href="#">
+            <span class="tutorial-card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M4 4h16v12H7l-3 3V4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="9" cy="10" r="1" fill="currentColor"/>
+                <circle cx="12" cy="10" r="1" fill="currentColor"/>
+                <circle cx="15" cy="10" r="1" fill="currentColor"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="tutorial-card__title">Chatbot Tutorial</h3>
+              <p class="tutorial-card__desc">Build a chatbot powered by large language models</p>
+            </div>
+          </a>
+
+          <a class="tutorial-card" href="#">
+            <span class="tutorial-card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M5 4h14v17l-7-3-7 3V4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="tutorial-card__title">Jina Tutorial</h3>
+              <p class="tutorial-card__desc">Learn how to use the Jina v3 reranker, reader and v3 embedding model inside Elasticsearch.</p>
+            </div>
+          </a>
+
+          <a class="tutorial-card" href="#">
+            <span class="tutorial-card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M4 5a2 2 0 012-2h11v15H6a2 2 0 00-2 2V5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M17 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M9 8l3 2-3 2V8z" fill="currentColor"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="tutorial-card__title">Hands On Learning</h3>
+              <p class="tutorial-card__desc">Try out these self-paced tutorials for Search AI</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXAMPLES -->
+    <section class="section--lg">
+      <div class="container">
+        <div class="examples-head">
+          <h2 class="h1" id="examples">Examples</h2>
+          <p class="examples-head__subtitle">Practical how-to guides, interactive notebooks, and sample apps to get you started</p>
+        </div>
+
+        <div class="examples-group">
+          <h3 class="examples-group__title">Prompts</h3>
+          <div class="examples-list">
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Prompt Library</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="examples-group">
+          <h3 class="examples-group__title">Apps</h3>
+          <div class="examples-list">
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Chatbot RAG Reference App</span>
+              <span class="examples-list__tags">
+                <span class="chip" tabindex="0" role="button">AI</span>
+                <span class="chip" tabindex="0" role="button">Vector Database</span>
+              </span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">OpenAI embeddings in Elasticsearch</span>
+              <span class="examples-list__tags">
+                <span class="chip" tabindex="0" role="button">Vector Database</span>
+                <span class="chip" tabindex="0" role="button">AI</span>
+              </span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Relevance Workbench</span>
+              <span class="examples-list__tags">
+                <span class="chip" tabindex="0" role="button">Vector Database</span>
+                <span class="chip" tabindex="0" role="button">AI</span>
+                <span class="chip" tabindex="0" role="button">+1</span>
+              </span>
+            </a>
+          </div>
+        </div>
+
+        <div class="examples-group">
+          <h3 class="examples-group__title">Notebooks</h3>
+          <div class="examples-list">
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Semantic search using the Inference API with the OpenAI service</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">AI</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Load an Embedding Model into Elasticsearch</span>
+              <span class="examples-list__tags">
+                <span class="chip" tabindex="0" role="button">Vector Database</span>
+                <span class="chip" tabindex="0" role="button">Lucene</span>
+              </span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Load and search with a multilingual model</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">Vector Database</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Semantic search with ELSER in Elasticsearch</span>
+              <span class="examples-list__tags">
+                <span class="chip" tabindex="0" role="button">Vector Database</span>
+                <span class="chip" tabindex="0" role="button">Relevance</span>
+              </span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Question Answering with LangChain and OpenAI</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">AI</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Integrate LangChain Bedrock LLM and Elasticsearch</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">AI</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Semantic search using the Inference API with the Cohere service</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">AI</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Using Cohere for RAG and Rerank in Elasticsearch</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">AI</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">RAG chatbot with LangChain and Elasticsearch</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">AI</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Integrations LangChain question answering with self query retriever</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">AI</span></span>
+            </a>
+            <a class="examples-list__item" href="#">
+              <span class="examples-list__item-title">Semantic search quick start</span>
+              <span class="examples-list__tags"><span class="chip" tabindex="0" role="button">Vector Database</span></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTEGRATIONS — untouched -->
+    <section class="section--lg">
+      <div class="container">
+        <div class="integrations-head">
+          <h2 class="h1" id="integrations">Integrations</h2>
+          <p class="integrations-head__subtitle">Seamlessly connect with leading AI and machine learning platforms to enhance your search capabilities and drive powerful, intelligent applications with Elasticsearch</p>
+        </div>
+
+        <div class="tab-bar">
+          <button class="tab is-active" type="button">All Integrations</button>
+          <button class="tab" type="button">Model Providers</button>
+          <button class="tab" type="button">RAG Development Frameworks</button>
+          <button class="tab" type="button">ETL and Data Prep</button>
+        </div>
+
+        <div class="integrations-grid">
+          <a class="integration-card" href="#">
+            <span class="integration-card__logo" style="background:#ff6a00;">A</span>
+            <div>
+              <h3 class="integration-card__title">Alibaba Cloud</h3>
+              <p class="integration-card__desc">Established in 2009, Alibaba Cloud is the digital technology and intelligence backbone of Alibaba Group. It offers a complete suite of cloud services to customers worldwide, including elastic computing, database, storage, network virtualization services, large-scale computing, security, big data analytics, machine learning and artificial intelligence (AI) services.</p>
+              <div class="integration-card__cat">Model Providers</div>
+            </div>
+          </a>
+
+          <a class="integration-card" href="#">
+            <span class="integration-card__logo" style="background:#ff9900;">aws</span>
+            <div>
+              <h3 class="integration-card__title">Amazon Bedrock</h3>
+              <p class="integration-card__desc">Amazon Bedrock is a fully managed service that offers a choice of high-performing foundation models (FMs) from leading AI companies like AI21 Labs, Anthropic, Cohere, Meta, Mistral AI, Stability AI, and Amazon through a single API.</p>
+              <div class="integration-card__cat">Model Providers</div>
+            </div>
+          </a>
+
+          <a class="integration-card" href="#">
+            <span class="integration-card__logo" style="background:#d97757;">A</span>
+            <div>
+              <h3 class="integration-card__title">Anthropic</h3>
+              <p class="integration-card__desc">Anthropic is an AI lab whose research and products put safety at the frontier. As a public benefit corporation, Anthropic is dedicated to ensuring the world safely makes the transition through transformative AI. Their multidisciplinary team creates reliable, interpretable, and steerable AI systems. Anthropic's flagship product is Claude.</p>
+              <div class="integration-card__cat">Model Providers</div>
+            </div>
+          </a>
+
+          <a class="integration-card" href="#">
+            <span class="integration-card__logo" style="background:#ec4899;">C</span>
+            <div>
+              <h3 class="integration-card__title">Cohere</h3>
+              <p class="integration-card__desc">Cohere builds models for use cases such as embeddings and reranking, used by companies to build production-ready, scalable, and efficient AI-powered applications.</p>
+              <div class="integration-card__cat">Model Providers</div>
+            </div>
+          </a>
+
+          <a class="integration-card" href="#">
+            <span class="integration-card__logo" style="background:#4285f4;">G</span>
+            <div>
+              <h3 class="integration-card__title">Google Vertex AI</h3>
+              <p class="integration-card__desc">Google's Vertex AI is a fully-managed, unified AI development platform for building and using generative AI. Vertex AI provides access Vertex AI Studio, Agent Builder, and 150+ foundation models, including Gemini 1.5 Pro and Gemini 1.5 Flash.</p>
+              <div class="integration-card__cat">Model Providers</div>
+            </div>
+          </a>
+
+          <a class="integration-card" href="#">
+            <span class="integration-card__logo" style="background:#ffd21e;color:#000;">🤗</span>
+            <div>
+              <h3 class="integration-card__title">Hugging Face</h3>
+              <p class="integration-card__desc">Open-source hub dedicated to AI/ML models and tools. Seamlessly integrate Hugging Face and Elasticsearch by leveraging the transformers library or deploying available models directly in Elasticsearch.</p>
+              <div class="integration-card__cat">Model Providers</div>
+            </div>
+          </a>
+        </div>
+
+        <div class="cta">
+          <div>
+            <h3 class="cta__title">Ready to build state of the art search experiences?</h3>
+            <p class="cta__body">Sufficiently advanced search isn't achieved with the efforts of one. Elasticsearch is powered by data scientists, ML ops, engineers, and many more who are just as passionate about search as you are. Let's connect and work together to build the magical search experience that will get you the results you want.</p>
+          </div>
+          <div class="cta__actions">
+            <a class="btn btn--secondary" href="#">
+              Try it yourself
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 00-2.53 15.59c.4.07.55-.17.55-.39v-1.4c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.88 2.34.67.07-.52.28-.88.51-1.08-1.78-.2-3.65-.89-3.65-3.96 0-.88.31-1.6.83-2.16-.08-.2-.36-1.02.08-2.13 0 0 .67-.22 2.2.82a7.66 7.66 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.52.56.83 1.28.83 2.16 0 3.08-1.87 3.76-3.66 3.96.29.25.55.74.55 1.49v2.2c0 .22.15.46.55.39A8 8 0 008 0z"/></svg>
+            </a>
+            <a class="btn btn--primary" href="#">Subscribe to newsletter</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+      </div>
+      <!-- end main page -->
+
+      <!-- ============================================
+           TUTORIAL PAGE — Install Elasticsearch
+           ============================================ -->
+      <div class="page" data-page="tutorial" hidden>
+        <section class="section--first">
+          <div class="container">
+            <div class="article-layout">
+              <div class="article-body">
+
+                <div class="article-callout">
+                  <svg class="article-callout__icon" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/>
+                    <path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  <p>In this section you will learn about some of the options you have for running Elasticsearch. Most of the tutorials and content on this site will require you to first follow the instructions below for your chosen method of installation.</p>
+                </div>
+
+                <h2>How to run Elasticsearch</h2>
+                <p>In this section, we will cover convenient installation options for Elasticsearch:</p>
+
+                <ul>
+                  <li><a class="inline-link" href="#">Elastic Cloud</a> — Elastic Cloud provides a hosted Elasticsearch and Kibana service available on AWS, GCP, and Azure. It offers a 14-day free trial.</li>
+                  <li><a class="inline-link" href="#">Docker</a> — A good option for local development and testing.</li>
+                  <li><a class="inline-link" href="#">Serverless</a> — Delivers a fully managed experience that abstracts away the underlying infrastructure.</li>
+                  <li><a class="inline-link" href="#">Start-local</a> — An option for quickly getting started and running Elasticsearch locally.</li>
+                </ul>
+
+                <p>Note that these aren't the only ways to deploy Elasticsearch. You can find a discussion of other deployment options such as installing Elasticsearch with <code style="font-family:var(--font-mono);color:#365bbc;">.zip</code> in the <a class="inline-link" href="#">Elasticsearch Installation Guide</a>.</p>
+
+                <div class="article-next-card">
+                  <p class="article-next-card__label">Next</p>
+                  <a class="article-next-card__link" href="#">Elastic Cloud →</a>
+                </div>
+
+                <a class="article-report" href="#">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 15V3l6 5 6-5v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Report an issue
+                </a>
+              </div>
+
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================================
+           ARTICLE PAGE — Does MCP make search obsolete?
+           ============================================ -->
+      <div class="page" data-page="article" hidden>
+        <section class="section--first">
+          <div class="container">
+            <div class="article-layout">
+              <div class="article-body">
+
+                <p>Test Elastic's leading-edge, out-of-the-box capabilities. Dive into our sample notebooks in the <a class="inline-link" href="#">Elasticsearch Labs repo</a>, start a <a class="inline-link" href="#">free cloud trial</a>, or try Elastic on your <a class="inline-link" href="#">local machine now</a>.</p>
+
+                <p>With the rise of large language models (<a class="inline-link" href="#">LLMs</a>), agent frameworks, and new protocols like Model Context Protocol (MCP), a provocative question is starting to surface:</p>
+
+                <div class="article-blockquote">
+                  <strong>Do we still need a search engine at all?</strong>
+                </div>
+
+                <p>If agents can call tools on demand and models can reason over massive context windows, why not just fetch data live from every system and let the LLM figure it out?</p>
+                <p>It's a reasonable question. It's also the wrong conclusion.</p>
+                <p>The reality is that MCP and agent tooling don't eliminate the need for search. They make the quality of search more critical than ever. In this blog, we'll explore why MCP, federated search, and large context windows don't replace search engines and why indexes remain the foundational layer for scalable, accurate, enterprise-grade AI.</p>
+
+                <h2>What MCP actually is (and what it is not)</h2>
+                <p>MCP is a coordination protocol. It standardizes how an agent requests information or actions from external systems.</p>
+                <p>What MCP doesn't do:</p>
+                <ul>
+                  <li>Rank results across systems.</li>
+                  <li>Understand relevance across heterogeneous data.</li>
+                  <li>Normalize schemas or metadata.</li>
+                  <li>Data transformations or enrichments at scale.</li>
+                  <li>Apply consistent security and permissions.</li>
+                  <li>Optimize for latency, cost, or scale.</li>
+                </ul>
+                <p>In other words, <strong>MCP tells agents how to ask for data, not which data matters most</strong>.</p>
+
+                <h2>Modern retrieval requires query intelligence, not just data access</h2>
+                <p>In modern enterprise search architectures, retrieval quality is determined long before a query reaches an index. Raw queries — especially those generated by agents — may be incomplete, overly literal, schema-driven rather than intent-driven, and at times syntactically invalid.</p>
+                <p>This is why mature search platforms introduce a query intelligence layer that performs query rewriting, entity normalization, synonym expansion, and intent disambiguation before retrieval even begins.</p>
+
+                <h2>MCP-based retrieval is federated search in disguise</h2>
+                <p>Federated search isn't new. Enterprises have tried it for decades. The model is simple:</p>
+                <ul>
+                  <li>Send the user's query to multiple systems in parallel (SharePoint, GitHub, Jira, CRM).</li>
+                  <li>Collect the responses.</li>
+                  <li>Merge and present the results.</li>
+                </ul>
+                <p>MCP-driven tool calls follow the same pattern, except that the caller is now an agent instead of a user interface. And the same problems resurface.</p>
+
+                <h2>Why federated search breaks down at enterprise scale</h2>
+                <ul>
+                  <li><strong>Latency becomes unpredictable:</strong> slow and jittery. Agents must wait for multiple round trips before reasoning can even begin.</li>
+                  <li><strong>Relevance is fragmented:</strong> each system ranks within its own silo, with no cross-system understanding of importance.</li>
+                  <li><strong>Context is shallow and incomplete:</strong> usage signals, document relationships, and organizational knowledge are stripped away.</li>
+                  <li><strong>Limited filtering and features:</strong> systems don't share filtering, ranking, or permissions semantics.</li>
+                </ul>
+
+                <div class="article-figure">Figure — Federated search workflow</div>
+
+                <h2>The power of an indexed search</h2>
+                <p>Search engines achieve millisecond-level retrieval at massive scale by using specialized data structures, including inverted indexes for lexical search and k-dimensional trees for vector-based retrieval. The approach is to crawl or ingest every source into search engines, creating a central place of company knowledge.</p>
+
+                <h2>Conclusion: MCP changes the interface, not the fundamentals</h2>
+                <p>MCP is a meaningful step forward in how agents interact with tools. But it doesn't replace the need for fast, relevant, governed retrieval.</p>
+                <p>In enterprise AI:</p>
+                <ul>
+                  <li>Context quality determines answer quality.</li>
+                  <li>Indexes create that context.</li>
+                  <li>Search is the foundation, not the legacy.</li>
+                </ul>
+                <p>Indexes aren't obsolete in the era of MCP. They're the reason that MCP-based agents can work at all.</p>
+
+                <a class="article-report" href="#">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 15V3l6 5 6-5v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Report an issue
+                </a>
+              </div>
+
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================================
+           EXAMPLE PAGE — Prompt Library
+           ============================================ -->
+      <div class="page" data-page="example" hidden>
+        <section class="section--first">
+          <div class="container">
+            <div class="article-layout">
+              <div class="article-body">
+                <div class="prompt-hero">
+                  <div class="prompt-hero__icon">
+                    <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                      <circle cx="60" cy="50" r="28" stroke="currentColor" stroke-width="4"/>
+                      <path d="M52 78v10h16v-10M48 92h24M54 96h12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                      <path d="M60 38v18M53 48l7 7 7-7" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <h2>Prompt Library</h2>
+                  <p>Welcome to the Elasticsearch Labs prompt library, designed to help you speed up development, test new ideas and discover new ways to build with generative AI on Elasticsearch.</p>
+                  <p>Browse, adapt, and apply these prompts in your custom agents, whether you're building in Elastic <a class="inline-link" href="#">Agent Builder</a> or developing your own application.</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================================
+           BLOG LIST PAGE — opens via "View all" / "View more articles"
+           ============================================ -->
+      <div class="page" data-page="blogs" hidden>
+        <section class="section--first">
+          <div class="container">
+            <div class="blog-list">
+              <div class="blog-list__categories">
+                <div class="sidenav__eyebrow">
+                  <span class="sidenav__eyebrow-slash">/</span>
+                  <span>ALSO SEE THIS TOPIC IN</span>
+                </div>
+                <div class="sidenav__eyebrow-rule"></div>
+                <div class="blog-list__filters">
+                  <span class="chip" tabindex="0" role="button">Observability Lab</span>
+                  <span class="chip" tabindex="0" role="button">Security Lab</span>
+                  <span class="chip" tabindex="0" role="button">News</span>
+                </div>
+              </div>
+
+              <div class="blog-list__grid">
+                <a class="blog-card" href="#">
+                  <div class="blog-card__media"></div>
+                  <div class="blog-card__body">
+                    <div class="meta-row">
+                      <span class="chip" tabindex="0" role="button">Integrations</span>
+                      <span class="chip" tabindex="0" role="button">How To</span>
+                      <span class="meta">March 10, 2026</span>
+                    </div>
+                    <h3 class="blog-card__title h4">From ES|QL to Pandas dataframes in Python</h3>
+                    <p class="blog-card__excerpt">How to export ES|QL queries as Pandas dataframes in Python for data analysis and visualization workflows.</p>
+                    <div class="blog-card__author">
+                      <span class="blog-card__avatar">QP</span>
+                      <span class="blog-card__byline">By <strong>Quentin Pradet</strong></span>
+                    </div>
+                  </div>
+                </a>
+
+                <a class="blog-card" href="#">
+                  <div class="blog-card__media"></div>
+                  <div class="blog-card__body">
+                    <div class="meta-row">
+                      <span class="chip" tabindex="0" role="button">Lucene</span>
+                      <span class="chip" tabindex="0" role="button">How To</span>
+                      <span class="meta">March 6, 2026</span>
+                    </div>
+                    <h3 class="blog-card__title h4">Improving text expansion performance using token pruning</h3>
+                    <p class="blog-card__excerpt">How to improve the performance of text expansion queries by making them more efficient without sacrificing recall.</p>
+                    <div class="blog-card__author">
+                      <span class="blog-card__avatar">KD</span>
+                      <span class="blog-card__byline">By <strong>Kathleen DeRusso</strong></span>
+                    </div>
+                  </div>
+                </a>
+
+                <a class="blog-card" href="#">
+                  <div class="blog-card__media"></div>
+                  <div class="blog-card__body">
+                    <div class="meta-row">
+                      <span class="chip" tabindex="0" role="button">Vector Search</span>
+                      <span class="chip" tabindex="0" role="button">ML Research</span>
+                      <span class="meta">February 25, 2026</span>
+                    </div>
+                    <h3 class="blog-card__title h4">Vector Similarity Computations — ludicrous speed</h3>
+                    <p class="blog-card__excerpt">How to boost vector search performance using SIMD instructions and modern CPU architectures.</p>
+                    <div class="blog-card__author">
+                      <span class="blog-card__avatar">CH</span>
+                      <span class="blog-card__byline">By <strong>Chris Hegarty</strong></span>
+                    </div>
+                  </div>
+                </a>
+
+                <a class="blog-card" href="#">
+                  <div class="blog-card__media"></div>
+                  <div class="blog-card__body">
+                    <div class="meta-row">
+                      <span class="chip" tabindex="0" role="button">Generative AI</span>
+                      <span class="chip" tabindex="0" role="button">Integrations</span>
+                      <span class="meta">January 22, 2026</span>
+                    </div>
+                    <h3 class="blog-card__title h4">Agent Builder, beyond the chatbox: Introducing Augmented Infrastructure</h3>
+                    <p class="blog-card__excerpt">A new approach to enterprise AI agents that combines retrieval-augmented generation with real-time observability.</p>
+                    <div class="blog-card__author">
+                      <span class="blog-card__avatar">DS</span>
+                      <span class="blog-card__byline">By <strong>Dayananda Srinivas</strong></span>
+                    </div>
+                  </div>
+                </a>
+
+                <a class="blog-card" href="#">
+                  <div class="blog-card__media"></div>
+                  <div class="blog-card__body">
+                    <div class="meta-row">
+                      <span class="chip" tabindex="0" role="button">ML Research</span>
+                      <span class="meta">January 15, 2026</span>
+                    </div>
+                    <h3 class="blog-card__title h4">Stateless — your new state of find with Elasticsearch</h3>
+                    <p class="blog-card__excerpt">Discover the future of stateless Elasticsearch. Learn how we're building a new fully cloud-native architecture.</p>
+                    <div class="blog-card__author">
+                      <span class="blog-card__avatar">LL</span>
+                      <span class="blog-card__byline">By <strong>Leaf Lin</strong></span>
+                    </div>
+                  </div>
+                </a>
+
+                <a class="blog-card" href="#">
+                  <div class="blog-card__media"></div>
+                  <div class="blog-card__body">
+                    <div class="meta-row">
+                      <span class="chip" tabindex="0" role="button">How To</span>
+                      <span class="chip" tabindex="0" role="button">Vector Search</span>
+                      <span class="meta">January 8, 2026</span>
+                    </div>
+                    <h3 class="blog-card__title h4">Building effective database retrieval tools for context engineering</h3>
+                    <p class="blog-card__excerpt">Best practices for writing database retrieval tools for context engineering. Learn how to design and evaluate them.</p>
+                    <div class="blog-card__author">
+                      <span class="blog-card__avatar">TB</span>
+                      <span class="blog-card__byline">By <strong>Tim Brooks</strong></span>
+                    </div>
+                  </div>
+                </a>
+              </div>
+
+              <nav class="blog-pagination" aria-label="Pagination">
+                <button class="blog-pagination__cell" aria-label="Previous">‹</button>
+                <button class="blog-pagination__cell blog-pagination__cell--active">1</button>
+                <button class="blog-pagination__cell">2</button>
+                <button class="blog-pagination__cell">3</button>
+                <button class="blog-pagination__cell">4</button>
+                <button class="blog-pagination__cell">5</button>
+                <button class="blog-pagination__cell" aria-label="Next">›</button>
+              </nav>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================================
+           OBSERVABILITY LAB PAGE
+           ============================================ -->
+      <div class="page" data-page="obs" hidden>
+        <section class="section--lg section--first">
+          <div class="container">
+            <h1 class="h1">Elastic Observability Labs</h1>
+
+            <div class="hero-eyebrow">
+              <span class="hero-eyebrow__slash">/</span>
+              <span>FEATURED POST</span>
+            </div>
+            <div class="hero-eyebrow__rule"></div>
+
+            <div class="hero-grid">
+              <a class="featured-card" href="#">
+                <div class="featured-card__media"></div>
+                <div class="featured-card__body">
+                  <div class="meta-row">
+                    <span class="chip" tabindex="0" role="button">OpenTelemetry</span>
+                    <span class="chip" tabindex="0" role="button">APM</span>
+                    <span class="meta">March 10, 2026</span>
+                  </div>
+                  <h3 class="h4-large">Distributed tracing across polyglot microservices with OpenTelemetry</h3>
+                  <p class="featured-card__excerpt">A practical walkthrough of instrumenting services in Go, Python, and Node.js using a shared OpenTelemetry collector pipeline.</p>
+                </div>
+              </a>
+
+              <div class="small-articles">
+                <a class="small-article" href="#">
+                  <div class="meta-row">
+                    <span class="chip" tabindex="0" role="button">SLO</span>
+                    <span class="meta">March 9, 2026</span>
+                  </div>
+                  <h4 class="h4">Reducing alert fatigue with intelligent SLO-based notifications</h4>
+                </a>
+                <a class="small-article" href="#">
+                  <div class="meta-row">
+                    <span class="chip" tabindex="0" role="button">ML</span>
+                    <span class="meta">March 6, 2026</span>
+                  </div>
+                  <h4 class="h4">From metrics to insights: anomaly detection at scale</h4>
+                </a>
+                <a class="small-article" href="#">
+                  <div class="meta-row">
+                    <span class="chip" tabindex="0" role="button">Profiling</span>
+                    <span class="meta">February 25, 2026</span>
+                  </div>
+                  <h4 class="h4">Continuous profiling for Java applications in production</h4>
+                </a>
+                <a class="small-article" href="#">
+                  <div class="meta-row">
+                    <span class="chip" tabindex="0" role="button">Logs</span>
+                    <span class="meta">January 22, 2026</span>
+                  </div>
+                  <h4 class="h4">Unifying logs, metrics, and traces in a single Kibana view</h4>
+                </a>
+                <a class="view-all" href="#">View all <span aria-hidden="true">→</span></a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section--lg" id="obs-latest">
+          <div class="container">
+            <h1 class="h1" style="margin-bottom:32px;">Latest articles</h1>
+
+            <div class="latest-grid">
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--a"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">RUM</span><span class="meta">March 12, 2026</span></div>
+                  <h3 class="h4">RUM at scale: monitoring single-page applications in real time</h3>
+                  <p class="latest-card__excerpt">Capture real user performance across geographies and device classes with low overhead.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--b"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">SLO</span><span class="meta">March 8, 2026</span></div>
+                  <h3 class="h4">Building SLO dashboards that engineering teams actually use</h3>
+                  <p class="latest-card__excerpt">Practical examples of error budgets, burn-rate alerts, and stakeholder-friendly views.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--c"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Kubernetes</span><span class="meta">March 4, 2026</span></div>
+                  <h3 class="h4">Kubernetes pod metrics: from collection to actionable alerts</h3>
+                  <p class="latest-card__excerpt">A reference architecture for collecting and routing pod-level telemetry without breaking the bank.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--a"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Logs</span><span class="meta">February 27, 2026</span></div>
+                  <h3 class="h4">Cost-effective log retention for high-volume environments</h3>
+                  <p class="latest-card__excerpt">Tiered storage, sampling, and selective indexing strategies that scale.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--b"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Node.js</span><span class="meta">February 20, 2026</span></div>
+                  <h3 class="h4">Profiling Node.js memory leaks with continuous profiling</h3>
+                  <p class="latest-card__excerpt">From flame graphs to root-cause: a step-by-step debugging workflow.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--c"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">ES|QL</span><span class="meta">February 14, 2026</span></div>
+                  <h3 class="h4">ES|QL queries for observability: from logs to insights</h3>
+                  <p class="latest-card__excerpt">Compose readable analytics queries across multiple data sources in one expression.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--a"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Python</span><span class="meta">February 6, 2026</span></div>
+                  <h3 class="h4">Auto-instrumentation for Python: getting started with Elastic APM</h3>
+                  <p class="latest-card__excerpt">Spin up end-to-end traces in minutes without modifying application code.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--b"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Synthetics</span><span class="meta">January 28, 2026</span></div>
+                  <h3 class="h4">Synthetic monitoring vs RUM: choosing the right approach</h3>
+                  <p class="latest-card__excerpt">When proactive probing wins, when passive measurement wins, and how to combine both.</p>
+                </div>
+              </a>
+              <a class="latest-card" href="#">
+                <div class="latest-card__media latest-card__media--c"></div>
+                <div class="latest-card__body">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Profiling</span><span class="meta">January 18, 2026</span></div>
+                  <h3 class="h4">Universal Profiling: zero-instrumentation insights for any workload</h3>
+                  <p class="latest-card__excerpt">eBPF-powered profiling across your entire fleet, with no code changes needed.</p>
+                </div>
+              </a>
+            </div>
+            <div class="latest-more">
+              <a class="btn btn--primary" href="#">See all</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================================
+           SECURITY LAB PAGE
+           ============================================ -->
+      <div class="page" data-page="sec" hidden>
+        <section class="section--lg section--first">
+          <div class="container">
+            <h1 class="h1">Primary threat research from Elastic Security Labs</h1>
+
+            <div class="hero-eyebrow">
+              <span class="hero-eyebrow__slash">/</span>
+              <span>FEATURED POST</span>
+            </div>
+            <div class="hero-eyebrow__rule"></div>
+
+            <div class="hero-grid">
+              <a class="featured-card" href="#">
+                <div class="featured-card__media"></div>
+                <div class="featured-card__body">
+                  <div class="meta-row">
+                    <span class="chip" tabindex="0" role="button">Threat Research</span>
+                    <span class="chip" tabindex="0" role="button">Adversary Tracking</span>
+                    <span class="meta">March 10, 2026</span>
+                  </div>
+                  <h3 class="h4-large">Tracking adversary infrastructure: cluster analysis at scale</h3>
+                  <p class="featured-card__excerpt">A look at how the Elastic Security Labs team correlates passive DNS, certificate, and netflow telemetry to map adversary networks.</p>
+                </div>
+              </a>
+
+              <div class="small-articles">
+                <a class="small-article" href="#">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Detection</span><span class="meta">March 9, 2026</span></div>
+                  <h4 class="h4">Detecting living-off-the-land binaries in Windows environments</h4>
+                </a>
+                <a class="small-article" href="#">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Ransomware</span><span class="meta">March 6, 2026</span></div>
+                  <h4 class="h4">New evasion techniques in modern ransomware campaigns</h4>
+                </a>
+                <a class="small-article" href="#">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Cloud</span><span class="meta">February 25, 2026</span></div>
+                  <h4 class="h4">Building behavioral detections for cloud workload protection</h4>
+                </a>
+                <a class="small-article" href="#">
+                  <div class="meta-row"><span class="chip" tabindex="0" role="button">Threat Hunting</span><span class="meta">January 22, 2026</span></div>
+                  <h4 class="h4">Threat hunting workflows: from hypothesis to validated detection</h4>
+                </a>
+                <a class="view-all" href="#">View all <span aria-hidden="true">→</span></a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- THREAT COMMAND -->
+        <section class="section--lg" id="sec-threat-command">
+          <div class="container">
+            <h1 class="h1" style="margin-bottom:32px;">Threat Command</h1>
+            <div class="latest-grid">
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Espionage</span><span class="meta">March 11, 2026</span></div><h3 class="h4">Operation Vermilion: a multi-stage espionage campaign</h3><p class="latest-card__excerpt">Detailed analysis of the toolkit, infrastructure, and victimology of a recently-observed state-aligned operation.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">MSP</span><span class="meta">March 5, 2026</span></div><h3 class="h4">Emerging threats targeting managed service providers in EMEA</h3><p class="latest-card__excerpt">Why MSPs continue to be high-value targets and what defenders should monitor.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Implants</span><span class="meta">February 27, 2026</span></div><h3 class="h4">A regional actor expands its toolkit with novel implants</h3><p class="latest-card__excerpt">Static and dynamic analysis of two previously-undocumented backdoors.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">APAC</span><span class="meta">February 18, 2026</span></div><h3 class="h4">DragonShield campaign: targeting financial services in APAC</h3><p class="latest-card__excerpt">Sector-specific TTPs and recommended mitigations.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Quarterly</span><span class="meta">February 5, 2026</span></div><h3 class="h4">Quarterly threat landscape report — Q1 2026</h3><p class="latest-card__excerpt">Key shifts in tactics, techniques, and target sectors over the past quarter.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Ransomware</span><span class="meta">January 24, 2026</span></div><h3 class="h4">Infrastructure overlap across affiliate ransomware groups</h3><p class="latest-card__excerpt">Pivoting on shared hosting reveals connections between three nominally separate operations.</p></div></a>
+            </div>
+            <div class="latest-more"><a class="btn btn--primary" href="#">See all</a></div>
+          </div>
+        </section>
+
+        <!-- PRODUCT UPDATES -->
+        <section class="section--lg" id="sec-product-updates">
+          <div class="container">
+            <h1 class="h1" style="margin-bottom:32px;">Product Updates</h1>
+            <div class="latest-grid">
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Endpoint</span><span class="meta">March 12, 2026</span></div><h3 class="h4">Endpoint Security 8.16: new behavioral protections</h3><p class="latest-card__excerpt">Expanded coverage for credential theft and lateral movement, now generally available.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">CSPM</span><span class="meta">March 7, 2026</span></div><h3 class="h4">Cloud Security Posture Management adds Azure benchmarks</h3><p class="latest-card__excerpt">CIS-aligned configuration checks now cover Azure resources alongside AWS and GCP.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Kibana</span><span class="meta">March 1, 2026</span></div><h3 class="h4">Unified investigation experience now in the Security solution</h3><p class="latest-card__excerpt">One workspace for alerts, hosts, users, and timelines — designed around the analyst workflow.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Entity Analytics</span><span class="meta">February 22, 2026</span></div><h3 class="h4">Improved entity analytics for risk-scoring users and hosts</h3><p class="latest-card__excerpt">Updated scoring model better reflects context from telemetry sources.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Integrations</span><span class="meta">February 12, 2026</span></div><h3 class="h4">Bidirectional integrations with leading EDR vendors</h3><p class="latest-card__excerpt">Send and receive enrichment data across your existing security stack.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">AI</span><span class="meta">January 30, 2026</span></div><h3 class="h4">AI-powered triage with Attack Discovery</h3><p class="latest-card__excerpt">Surface the most consequential alerts and chain related events automatically.</p></div></a>
+            </div>
+            <div class="latest-more"><a class="btn btn--primary" href="#">See all</a></div>
+          </div>
+        </section>
+
+        <!-- REPORTS -->
+        <section class="section--lg" id="sec-reports">
+          <div class="container">
+            <h1 class="h1" style="margin-bottom:32px;">Reports</h1>
+            <div class="latest-grid">
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Global</span><span class="meta">March 9, 2026</span></div><h3 class="h4">Global Threat Report 2026: key findings and predictions</h3><p class="latest-card__excerpt">Annual data-driven look at the most significant shifts in the threat landscape.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Ransomware</span><span class="meta">March 3, 2026</span></div><h3 class="h4">Ransomware economics: payment trends in 2025</h3><p class="latest-card__excerpt">Quantitative analysis of negotiated vs. demanded amounts across sectors.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Cloud</span><span class="meta">February 24, 2026</span></div><h3 class="h4">State of cloud security: misconfiguration patterns at scale</h3><p class="latest-card__excerpt">Anonymized findings from posture assessments across thousands of accounts.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Supply Chain</span><span class="meta">February 13, 2026</span></div><h3 class="h4">Supply chain attack analysis: lessons from recent incidents</h3><p class="latest-card__excerpt">What made recent compromises succeed, and where detection opportunities exist.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Insider</span><span class="meta">January 31, 2026</span></div><h3 class="h4">Insider threat trends in hybrid work environments</h3><p class="latest-card__excerpt">Behavioral signals worth monitoring as workforce patterns continue evolving.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Phishing</span><span class="meta">January 20, 2026</span></div><h3 class="h4">Detecting AI-generated phishing: a quantitative analysis</h3><p class="latest-card__excerpt">Linguistic and structural features that still distinguish synthetic emails.</p></div></a>
+            </div>
+            <div class="latest-more"><a class="btn btn--primary" href="#">See all</a></div>
+          </div>
+        </section>
+
+        <!-- ENABLEMENT -->
+        <section class="section--lg" id="sec-enablement">
+          <div class="container">
+            <h1 class="h1" style="margin-bottom:32px;">Enablement</h1>
+            <div class="latest-grid">
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Detection-as-code</span><span class="meta">March 11, 2026</span></div><h3 class="h4">Building your first detection-as-code workflow</h3><p class="latest-card__excerpt">Version-control your rules, test them in CI, and promote between environments.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Rules</span><span class="meta">March 4, 2026</span></div><h3 class="h4">Tuning prebuilt detection rules for low false positives</h3><p class="latest-card__excerpt">Practical strategies for adapting community rules to your environment.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Investigation</span><span class="meta">February 26, 2026</span></div><h3 class="h4">Investigating alerts in the Security solution: a guided tour</h3><p class="latest-card__excerpt">Walk through a realistic alert end to end, from triage to resolution.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--a"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Timelines</span><span class="meta">February 16, 2026</span></div><h3 class="h4">Threat hunting with Timelines: practical workflows</h3><p class="latest-card__excerpt">Build, save, and share hunt templates with your team.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--b"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">Endpoint</span><span class="meta">February 7, 2026</span></div><h3 class="h4">Setting up Elastic Defend on production endpoints</h3><p class="latest-card__excerpt">Rollout best practices, policy authoring, and exception management.</p></div></a>
+              <a class="latest-card" href="#"><div class="latest-card__media latest-card__media--c"></div><div class="latest-card__body"><div class="meta-row"><span class="chip" tabindex="0" role="button">IOC</span><span class="meta">January 25, 2026</span></div><h3 class="h4">Creating custom indicators-of-compromise feeds</h3><p class="latest-card__excerpt">Bring your own threat intel and match it against telemetry at scale.</p></div></a>
+            </div>
+            <div class="latest-more"><a class="btn btn--primary" href="#">See all</a></div>
+          </div>
+        </section>
+      </div>
+
+
+      <!-- ============================================
+           ROUTING
+           ============================================ -->
+      <script>
+        (function() {
+          const pages = document.querySelectorAll('.page');
+          const secondaries = document.querySelectorAll('.sidenav__secondary');
+          const heroes = document.querySelectorAll('.article-hero');
+          function showPage(name) {
+            pages.forEach(p => {
+              p.hidden = (p.dataset.page !== name);
+            });
+            secondaries.forEach(s => {
+              s.hidden = (s.dataset.secondary !== name);
+            });
+            heroes.forEach(h => {
+              h.hidden = (h.dataset.hero !== name);
+            });
+            // ARTICLE-HERO-V2 — REMOVE TO REVERT (delete the line below)
+            document.body.classList.toggle('article-hero-v2', name === 'article');
+            document.body.classList.toggle('page-main', name === 'main');
+            document.body.classList.toggle('page-obs', name === 'obs');
+            document.body.classList.toggle('page-sec', name === 'sec');
+            window.scrollTo({ top: 0, behavior: 'instant' });
+          }
+
+          // ============== Blog-grid filter (Observability / Security chips on Title: Tag topics page) ==============
+          const blogGrid = document.querySelector('[data-page="blogs"] .blog-list__grid');
+          const defaultBlogCardsHTML = blogGrid ? blogGrid.innerHTML : '';
+
+          const cardSets = {
+            obs: [
+              { chips: ['Observability', 'Agentic AI'], date: 'March 14, 2026', title: 'Tracing LLM Calls: Monitoring Agentic AI Workflows in Production', excerpt: 'Instrument prompt → model → tool → response spans with OpenTelemetry for end-to-end agent observability.', avatar: 'AL', author: 'Aliya Lin' },
+              { chips: ['Observability', 'APM'], date: 'March 7, 2026', title: 'Identifying Bottlenecks in AI-Driven Applications with APM', excerpt: 'Find the slow link in your inference pipeline using flame graphs, span timings, and APM correlations.', avatar: 'RM', author: 'Ravi Menon' },
+              { chips: ['OpenTelemetry'], date: 'February 28, 2026', title: 'Distributed tracing across polyglot microservices with OpenTelemetry', excerpt: 'Shared collector pipelines for Go, Python, and Node services.', avatar: 'SK', author: 'Sara Kim' },
+              { chips: ['ML', 'Alerts'], date: 'February 19, 2026', title: 'Anomaly detection at scale: from metrics to actionable alerts', excerpt: 'Tuning ML-powered detections so they fire on what matters and stay quiet otherwise.', avatar: 'JD', author: 'Jordan Diaz' },
+              { chips: ['RUM'], date: 'February 10, 2026', title: 'RUM for SPAs: capturing real user performance at the edge', excerpt: 'How to instrument single-page apps without sampling away the signal you care about.', avatar: 'EM', author: 'Emma Müller' },
+              { chips: ['Profiling', 'JVM'], date: 'January 30, 2026', title: 'Continuous profiling for production JVM workloads', excerpt: 'Zero-instrumentation insights for Java services running at scale.', avatar: 'TN', author: 'Theo Nakamura' }
+            ],
+            sec: [
+              { chips: ['Security', 'Agentic AI'], date: 'March 13, 2026', title: 'Defending Against Prompt Injection Attacks in Agentic AI Systems', excerpt: 'Threat models, mitigations, and detection patterns for production LLM agents.', avatar: 'NA', author: 'Nora Ahmadi' },
+              { chips: ['Vector DB', 'Privacy'], date: 'March 5, 2026', title: 'Securing Vector Databases: Access Control and Data Privacy', excerpt: 'Role-based access, tenant isolation, and PII handling for embedding stores.', avatar: 'CO', author: 'Chika Obi' },
+              { chips: ['Detection'], date: 'February 24, 2026', title: 'Detecting living-off-the-land binaries in Windows environments', excerpt: 'High-signal behaviors for legitimate-but-abused tooling, with tuning advice.', avatar: 'PV', author: 'Priya Verma' },
+              { chips: ['Cloud'], date: 'February 14, 2026', title: 'Building behavioral detections for cloud workload protection', excerpt: 'From container runtime telemetry to actionable detections.', avatar: 'MT', author: 'Marcus Torres' },
+              { chips: ['Threat Hunting'], date: 'February 2, 2026', title: 'Threat hunting with Timelines: practical workflows', excerpt: 'Reusable hunt templates your analyst team can iterate on.', avatar: 'BL', author: 'Bo Lin' },
+              { chips: ['Phishing', 'AI'], date: 'January 21, 2026', title: 'AI-generated phishing: a quantitative analysis', excerpt: 'Linguistic and structural signals that distinguish synthetic emails.', avatar: 'HR', author: 'Hana Rao' }
+            ]
+          };
+
+          function renderBlogCardsForSet(setKey) {
+            if (!blogGrid) return;
+            const cards = cardSets[setKey];
+            if (!cards) {
+              blogGrid.innerHTML = defaultBlogCardsHTML;
+              return;
+            }
+            blogGrid.innerHTML = cards.map(c => `
+              <a class="blog-card" href="#">
+                <div class="blog-card__media"></div>
+                <div class="blog-card__body">
+                  <div class="meta-row">
+                    ${c.chips.map(t => `<span class="chip" tabindex="0" role="button">${t}</span>`).join('')}
+                    <span class="meta">${c.date}</span>
+                  </div>
+                  <h3 class="blog-card__title h4">${c.title}</h3>
+                  <p class="blog-card__excerpt">${c.excerpt}</p>
+                  <div class="blog-card__author">
+                    <span class="blog-card__avatar">${c.avatar}</span>
+                    <span class="blog-card__byline">By <strong>${c.author}</strong></span>
+                  </div>
+                </div>
+              </a>
+            `).join('');
+          }
+
+          // Wire up click handlers
+          document.addEventListener('click', function(e) {
+            // Secondary nav pills → lab pages
+            const labPill = e.target.closest('.secondary-nav__item[data-lab]');
+            if (labPill) {
+              e.preventDefault();
+              const lab = labPill.dataset.lab;
+              if (lab === 'es') showPage('main');
+              else if (lab === 'obs') showPage('obs');
+              else if (lab === 'sec') showPage('sec');
+              return;
+            }
+
+            // Chip tags — clickable but don't trigger parent card navigation
+            const chip = e.target.closest('.chip');
+            if (chip) {
+              e.preventDefault();
+              e.stopPropagation();
+              const chipText = chip.textContent.trim();
+
+              // Article page: only "Agentic AI" chip routes to Title: Tag topics
+              const onArticle = !document.querySelector('.page[data-page="article"]').hidden;
+              if (onArticle && chipText === 'Agentic AI') {
+                showPage('blogs');
+                return;
+              }
+
+              // Blogs page: Observability Lab / Security Lab filter chips
+              const inBlogCategories = chip.closest('.blog-list__categories');
+              if (inBlogCategories && (chipText === 'Observability Lab' || chipText === 'Security Lab')) {
+                const setKey = chipText === 'Observability Lab' ? 'obs' : 'sec';
+                const wasActive = chip.classList.contains('is-active');
+                // Clear all active chips in this group
+                inBlogCategories.querySelectorAll('.chip.is-active').forEach(c => c.classList.remove('is-active'));
+                if (wasActive) {
+                  // Toggled off → restore default
+                  renderBlogCardsForSet(null);
+                } else {
+                  chip.classList.add('is-active');
+                  renderBlogCardsForSet(setKey);
+                }
+                return;
+              }
+
+              // All other chips: no-op
+              return;
+            }
+
+            // Sidenav scroll-to-section links (obs/sec lab pages)
+            const scrollLink = e.target.closest('[data-scroll-section]');
+            if (scrollLink) {
+              e.preventDefault();
+              const target = document.getElementById(scrollLink.dataset.scrollSection);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              return;
+            }
+
+            // Sidenav anchor links — route to main page section
+            const sidenavLink = e.target.closest('.sidenav__link[href^="#"]');
+            if (sidenavLink) {
+              e.preventDefault();
+              const targetId = sidenavLink.getAttribute('href');
+              const onMain = !document.querySelector('.page[data-page="main"]').hidden;
+              if (!onMain) {
+                showPage('main');
+                requestAnimationFrame(() => {
+                  const target = document.querySelector(targetId);
+                  if (target) target.scrollIntoView({ behavior: 'smooth' });
+                });
+              } else {
+                const target = document.querySelector(targetId);
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
+              }
+              return;
+            }
+
+            // Back links
+            const back = e.target.closest('[data-back]');
+            if (back) {
+              e.preventDefault();
+              showPage(back.dataset.back);
+              return;
+            }
+
+            // Tutorial cards → tutorial page
+            if (e.target.closest('.tutorial-card')) {
+              e.preventDefault();
+              showPage('tutorial');
+              return;
+            }
+
+            // View all / View more articles → blogs list page
+            if (e.target.closest('.view-all, [href="#"].btn--primary, .blog-pagination__cell')) {
+              const t = e.target.closest('.view-all, .btn--primary, .blog-pagination__cell');
+              // pagination is no-op for now; only route view-all and btn--primary
+              if (t.classList.contains('blog-pagination__cell')) {
+                e.preventDefault();
+                return;
+              }
+              // Only route the homepage "View more articles" button (.btn--primary inside .latest-more)
+              // and any .view-all link → blogs page
+              if (t.classList.contains('view-all') || t.closest('.latest-more')) {
+                e.preventDefault();
+                showPage('blogs');
+                return;
+              }
+            }
+
+            // Blog list cards → article page
+            if (e.target.closest('.blog-card')) {
+              e.preventDefault();
+              showPage('article');
+              return;
+            }
+
+            // Article cards (hero featured, small articles, latest cards) → article page
+            if (e.target.closest('.featured-card, .small-article, .latest-card')) {
+              e.preventDefault();
+              showPage('article');
+              return;
+            }
+
+            // Examples list items → example page (Prompt Library)
+            if (e.target.closest('.examples-list__item')) {
+              e.preventDefault();
+              showPage('example');
+              return;
+            }
+          });
+
+          // Hide top nav on scroll down, show on scroll up
+          let lastScrollY = window.scrollY;
+          let ticking = false;
+          window.addEventListener('scroll', function() {
+            if (!ticking) {
+              window.requestAnimationFrame(function() {
+                const currentY = window.scrollY;
+                const delta = currentY - lastScrollY;
+                if (currentY <= 10) {
+                  document.body.classList.remove('nav-hidden');
+                } else if (delta > 4 && currentY > 100) {
+                  document.body.classList.add('nav-hidden');
+                } else if (delta < -4) {
+                  document.body.classList.remove('nav-hidden');
+                }
+                lastScrollY = currentY;
+                ticking = false;
+              });
+              ticking = true;
+            }
+          }, { passive: true });
+        })();
+      </script>
+
+    </main>
+
+  </div>
+
+</body>
+</html>
